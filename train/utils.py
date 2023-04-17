@@ -1,5 +1,8 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List
+import configparser
+import os
+from peft import LoraConfig
 
 
 @dataclass
@@ -27,6 +30,13 @@ class ModelArguments:
                 "with private models)."
             )
         },
+    )
+    
+    use_fast_tokenizer: bool = field(
+        default=False,
+        metadata={
+            "help": "whether or not use a fast tokenizer"
+        }
     )
 
 
@@ -131,3 +141,16 @@ class DataTrainingArguments:
 
         if self.val_max_target_length is None:
             self.val_max_target_length = self.max_target_length
+
+@dataclass
+class LoraTrainingConfig(LoraConfig):
+    target_modules: Optional[List[str]] = field(
+        default=None,
+        metadata={
+            "help": "List of module names or regex expression of the module names to replace with Lora."
+            "For example, ['q', 'v'] or '.*decoder.*(SelfAttention|EncDecAttention).*(q|v)$' "
+        },
+    )
+
+if __name__=="__main__":
+    ...
