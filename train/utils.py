@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List
 import configparser
 import os
+from peft import LoraConfig
 
 
 @dataclass
@@ -29,6 +30,13 @@ class ModelArguments:
                 "with private models)."
             )
         },
+    )
+    
+    use_fast_tokenizer: bool = field(
+        default=False,
+        metadata={
+            "help": "whether or not use a fast tokenizer"
+        }
     )
 
 
@@ -134,36 +142,15 @@ class DataTrainingArguments:
         if self.val_max_target_length is None:
             self.val_max_target_length = self.max_target_length
 
-def get_arguments():
-    # requires modeification
-    CURRENT_DIR = os.path.abspath(os.getcwd())
-    TRAIN_DIR = CURRENT_DIR if CURRENT_DIR.split("/")[-1] == "train" else os.path.join(CURRENT_DIR, "train")
-    CONFIG_DIR = os.path.join(TRAIN_DIR, "config.ini")
-    
-    config = configparser.ConfigParser()
-    config.read(CONFIG_DIR)
-    
-    config_dict = {section: dict(config[section]) for section in config.sections()}
-
-    for dic in config_dict.values():
-        for key, value in dic.items():
-            dic[key] = eval(value)
-            
-            if len(value.split(",")) != 1:
-                dic[key] = value.strip('"').split(",")
-            
-    # model arguments
-    model_args = config_dict["MODEL_ARGUMENTS"]
-    
-    # data training arguments
-    data_args = config_dict["DATA_TRAINING_ARGUMENTS"]
-    
-    # training arguments
-    training_args = config_dict["TRAINING_ARGUMENTS"]
-    
-    lora_config = config_dict["LORA_CONFIG"]
-    
-    return model_args, data_args, training_args, lora_config
+@dataclass
+class LoraTrainingConfig(LoraConfig):
+    target_modules: Optional[List[str]] = field(
+        default=None,
+        metadata={
+            "help": "List of module names or regex expression of the module names to replace with Lora."
+            "For example, ['q', 'v'] or '.*decoder.*(SelfAttention|EncDecAttention).*(q|v)$' "
+        },
+    )
 
 if __name__=="__main__":
     ...

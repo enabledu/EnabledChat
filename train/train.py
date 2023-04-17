@@ -13,6 +13,7 @@ from datasets import load_dataset
 from transformers import (
     LlamaForCausalLM,
     LlamaTokenizer,
+    LlamaTokenizerFast,
     AutoConfig,
     HfArgumentParser,
     TrainingArguments,
@@ -30,66 +31,88 @@ from peft import (
 from utils import (
     ModelArguments,
     DataTrainingArguments,
-    get_arguments
+    LoraTrainingConfig
 )
-
-
 
 if __name__=="__main__":
     
-    model_args, data_args, training_args, lora_config = get_arguments()
+    batch_size = 64
+    
+    parser = HfArgumentParser(dataclass_types=(
+        ModelArguments,
+        DataTrainingArguments,
+        TrainingArguments,
+        LoraTrainingConfig,
+    ))
+    
+    if len(sys.argv) == 2: #passing a json file
+        model_args, data_args, training_args, lora_config = parser.parse_json_file(
+            json_file=os.path.abspath(sys.argv[1])
+        )
+    else:
+        model_args, data_args, training_args = parser.parse_args_into_dataclasses()
     
     # load the dataset
     dataset = load_dataset(
-        path=data_args["dataset_name"],
-        name=data_args["dataset_config_name"],
-        use_auth_token=True if model_args["use_auth_token"] else None,
+        path=data_args.dataset_name,
+        name=data_args.dataset_config_name,
+        use_auth_token=True if model_args.use_auth_token else None,
     )
+    
+    dataset["train"] = dataset["train"].select(
+        range(data_args.max_train_samples)
+        ) if data_args.max_train_samples else dataset["train"]
+    
+    dataset["validation"] = dataset["validation"].select(
+        range(data_args.max_eval_samples)
+        )if data_args.max_eval_samples else dataset["validation"]
     
     # load the model
     device_map = "auto"
     world_size = int(os.environ.get("WORLD_SIZE", 1))
     
-    gradient_accumlation_steps = training_args["batch_size"] // training_args["per_device_train_batch_size"]
+    gradient_accumlation_steps = batch_size // training_args.per_device_train_batch_size
     
     ddp = world_size != 1
     if ddp:
         device_map = {"": int(os.environ.get("LOCAL_RANK") or 0)}
         gradient_accumlation_steps = gradient_accumlation_steps // world_size
     
-    tokenizer = LlamaTokenizer.from_pretrained(
-        pretrained_model_name_or_path=model_args["tokenizer_name"],
-        add_eos_token=True,
-        use_auth_token=True if model_args["use_auth_token"] else None,
-    )
+    training_args.gradient_accumlation_steps = gradient_accumlation_steps
+    
+    if model_args.use_fast_tokenizer:
+        tokenizer = LlamaTokenizerFast.from_pretrained(
+            pretrained_model_name_or_path=model_args.tokenizer_name,
+            add_eos_token=True,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
+    else:
+        tokenizer = LlamaTokenizer.from_pretrained(
+            pretrained_model_name_or_path=model_args.tokenizer_name,
+            add_eos_token=True,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
     
     model = LlamaForCausalLM.from_pretrained(
-        pretrained_model_name_or_path=model_args["model_name"],
+        pretrained_model_name_or_path=model_args.model_name,
         load_in_8bit=True,
         device_map=device_map,
-        use_auth_token=True if model_args["use_auth_token"] else None,
+        use_auth_token=True if model_args.use_auth_token else None,
     )
     
     model = prepare_model_for_int8_training(model)
     
-    config = LoraConfig(
-        r=lora_config["lora_r"],
-        lora_alpha=lora_config["lora_alpha"],
-        target_modules=lora_config["target_modules"],
-        lora_dropout=lora_config["lora_dropout"],
-        bias="none",
-        task_type="CAUSAL_LM",
-    )
+    config = lora_config
     
     model = get_peft_model(model, config)
     tokenizer.pad_token_id = 0
     
     def tokenize(data):
         result = tokenizer(
-            data[data_args["input_column"]],
+            data[data_args.input_column],
             truncation=True,
-            max_length=data_args["max_source_length"],
-            padding="max_length" if data_args["pad_to_max_length"] else None,
+            max_length=data_args.max_source_length,
+            padding="max_length" if data_args.pad_to_max_length else None,
         )
         return {
             "input_ids": result["input_ids"],
@@ -100,7 +123,7 @@ if __name__=="__main__":
         tokenize, 
         batched=True, 
         remove_columns=dataset["validation"].column_names,
-        batch_size=data_args["preprocessing_num_workers"]
+        num_proc=data_args.preprocessing_num_workers
     )
     
     trainer = Trainer(
@@ -111,24 +134,7 @@ if __name__=="__main__":
             tokenizer=tokenizer,
             mlm=False
         ),
-        args=TrainingArguments(
-            per_device_train_batch_size=training_args["per_device_train_batch_size"],
-            per_device_eval_batch_size=training_args["per_device_eval_batch_size"],
-            gradient_accumulation_steps=gradient_accumlation_steps,
-            warmup_steps=training_args["warmup_steps"],
-            num_train_epochs=training_args["num_train_epochs"],
-            learning_rate=training_args["learning_rate"],
-            fp16=training_args["fp16"],
-            logging_steps=training_args["logging_steps"],
-            evaluation_strategy=training_args["evaluation_strategy"],
-            save_strategy=training_args["save_strategy"],
-            eval_steps=training_args["eval_steps"],
-            save_steps=training_args["save_steps"],
-            output_dir=training_args["output_dir"],
-            save_total_limit=training_args["save_total_limit"],
-            load_best_model_at_end=training_args["load_best_model_at_end"],
-            ddp_find_unused_parameters=False if ddp else None,
-        ),
+        args=training_args
     )
     
     model.config.use_cache = False
