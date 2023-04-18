@@ -1,7 +1,8 @@
-from dataclasses import dataclass, field
-from typing import Optional, List
 import configparser
 import os
+from dataclasses import dataclass, field
+from typing import List, Optional
+
 from peft import LoraConfig
 
 
@@ -31,12 +32,8 @@ class ModelArguments:
             )
         },
     )
-    
     use_fast_tokenizer: bool = field(
-        default=False,
-        metadata={
-            "help": "whether or not use a fast tokenizer"
-        }
+        default=False, metadata={"help": "whether or not use a fast tokenizer"}
     )
 
 
@@ -142,6 +139,7 @@ class DataTrainingArguments:
         if self.val_max_target_length is None:
             self.val_max_target_length = self.max_target_length
 
+
 @dataclass
 class LoraTrainingConfig(LoraConfig):
     target_modules: Optional[List[str]] = field(
@@ -152,5 +150,6 @@ class LoraTrainingConfig(LoraConfig):
         },
     )
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     ...
