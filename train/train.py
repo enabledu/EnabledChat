@@ -74,14 +74,14 @@ def main():
     device_map = "auto"
     world_size = int(os.environ.get("WORLD_SIZE", 1))
 
-    gradient_accumlation_steps = batch_size // train_args.per_device_train_batch_size
+    gradient_accumulation_steps = batch_size // train_args.per_device_train_batch_size
 
     ddp = world_size != 1
     if ddp:
         device_map = {"": int(os.environ.get("LOCAL_RANK") or 0)}
-        gradient_accumlation_steps = gradient_accumlation_steps // world_size
+        gradient_accumulation_steps = gradient_accumulation_steps // world_size
 
-    train_args.gradient_accumlation_steps = gradient_accumlation_steps
+    train_args.gradient_accumulation_steps = gradient_accumulation_steps
 
     if model_args.use_fast_tokenizer:
         tokenizer: PreTrainedTokenizer = LlamaTokenizerFast.from_pretrained(
