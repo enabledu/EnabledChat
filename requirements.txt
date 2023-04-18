@@ -6,3 +6,4 @@ loralib==0.1.1
 accelerate==0.18.0
 bitsandbytes==0.38.0.post1
 peft==0.2.0
+tokenizers==0.13.3
