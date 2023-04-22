@@ -4,6 +4,7 @@ import sys
 import torch
 from datasets import load_dataset
 from peft import (
+    PeftModel,
     get_peft_model,
     get_peft_model_state_dict,
     prepare_model_for_int8_training,
@@ -101,9 +102,7 @@ def main():
 
     model = prepare_model_for_int8_training(model)
 
-    config = lora_config
-
-    model = get_peft_model(model, config)
+    model: PeftModel = get_peft_model(model, lora_config)
     tokenizer.pad_token_id = 0
 
     def tokenize(data):
@@ -142,6 +141,10 @@ def main():
 
     if torch.__version__ >= "2" and sys.platform != "win32":
         model = torch.compile(model)
+
+    print("*" * 50)
+    model.print_trainable_parameters()
+    print("*" * 50, end="\n\n")
 
     trainer.train()
 
