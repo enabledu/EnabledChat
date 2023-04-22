@@ -49,8 +49,6 @@ def main():
             lora_config,
         ) = parser.parse_args_into_dataclasses()
 
-    batch_size = 64
-
     # load the dataset
     dataset = load_dataset(
         path=data_args.dataset_name,
@@ -74,14 +72,12 @@ def main():
     device_map = "auto"
     world_size = int(os.environ.get("WORLD_SIZE", 1))
 
-    gradient_accumulation_steps = batch_size // train_args.per_device_train_batch_size
-
     ddp = world_size != 1
     if ddp:
         device_map = {"": int(os.environ.get("LOCAL_RANK") or 0)}
-        gradient_accumulation_steps = gradient_accumulation_steps // world_size
-
-    train_args.gradient_accumulation_steps = gradient_accumulation_steps
+        train_args.gradient_accumulation_steps = (
+            train_args.gradient_accumulation_steps // world_size
+        )
 
     if model_args.use_fast_tokenizer:
         tokenizer: PreTrainedTokenizer = LlamaTokenizerFast.from_pretrained(
