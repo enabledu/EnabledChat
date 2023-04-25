@@ -33,6 +33,12 @@ class ModelArguments:
     use_fast_tokenizer: bool = field(
         default=False, metadata={"help": "whether or not use a fast tokenizer"}
     )
+    push_model_to_hub: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether or not to push the model to hub at the end of training."
+        },
+    )
 
 
 @dataclass

@@ -3,6 +3,7 @@ import sys
 
 import torch
 from datasets import load_dataset
+from huggingface_hub import login
 from peft import (
     PeftModel,
     get_peft_model,
@@ -49,6 +50,10 @@ def main():
             train_args,
             lora_config,
         ) = parser.parse_args_into_dataclasses()
+
+    # Login in to HuggingFace Hub
+    if train_args.hub_token is not None:
+        login(train_args.hub_token)
 
     # load the dataset
     dataset = load_dataset(
@@ -142,11 +147,16 @@ def main():
     if torch.__version__ >= "2" and sys.platform != "win32":
         model = torch.compile(model)
 
-    print("*" * 50)
+    print("\n", "*" * 50)
     model.print_trainable_parameters()
     print("*" * 50, end="\n\n")
 
     trainer.train()
+
+    # Push model to hub
+    if model_args.push_model_to_hub and train_args.hub_token is not None:
+        model.push_to_hub(train_args.hub_model_id)
+        tokenizer.push_to_hub(train_args.hub_model_id)
 
 
 if __name__ == "__main__":
