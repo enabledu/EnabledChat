@@ -55,6 +55,10 @@ def main():
     if train_args.hub_token is not None:
         login(train_args.hub_token)
 
+    # Set the project name for wandb
+    if model_args.wandb_project_name is not None:
+        os.environ["WANDB_PROJECT"] = model_args.wandb_project_name
+
     # load the dataset
     dataset = load_dataset(
         path=data_args.dataset_name,

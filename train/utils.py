@@ -39,6 +39,9 @@ class ModelArguments:
             "help": "Whether or not to push the model to hub at the end of training."
         },
     )
+    wandb_project_name: Optional[str] = field(
+        default=None, metadata={"help": "Set the project name for `wandb` run."}
+    )
 
 
 @dataclass
