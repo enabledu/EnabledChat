@@ -36,6 +36,12 @@ class ModelArguments:
             "help": "Whether or not to push the model to hub at the end of training."
         },
     )
+    save_local: bool = field(
+        default=True,
+        metadata={
+            "help": "Whether or not to save a version of the model locally after training is done."
+        },
+    )
     wandb_project_name: Optional[str] = field(
         default=None, metadata={"help": "Set the project name for `wandb` run."}
     )

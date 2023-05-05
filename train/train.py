@@ -155,6 +155,10 @@ def main():
         model.push_to_hub(train_args.hub_model_id)
         tokenizer.push_to_hub(train_args.hub_model_id)
 
+    # Save model locally
+    if model_args.save_local:
+        model.save_pretrained(train_args.output_dir)
+        tokenizer.save_pretrained(train_args.output_dir)
 
 if __name__ == "__main__":
     main()
