@@ -22,16 +22,13 @@ class ModelArguments:
         },
     )
     use_auth_token: bool = field(
-        default=True,
+        default=False,
         metadata={
             "help": (
                 "Will use the token generated when running `huggingface-cli login` (necessary to use this script "
                 "with private models)."
             )
         },
-    )
-    use_fast_tokenizer: bool = field(
-        default=False, metadata={"help": "whether or not use a fast tokenizer"}
     )
     push_model_to_hub: bool = field(
         default=False,
@@ -42,6 +39,10 @@ class ModelArguments:
     wandb_project_name: Optional[str] = field(
         default=None, metadata={"help": "Set the project name for `wandb` run."}
     )
+
+    def __post_init__(self):
+        if self.tokenizer_name is None:
+            self.tokenizer_name = self.model_name
 
 
 @dataclass
