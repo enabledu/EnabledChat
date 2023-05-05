@@ -11,11 +11,10 @@ from peft import (
     prepare_model_for_int8_training,
 )
 from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
     DataCollatorForLanguageModeling,
     HfArgumentParser,
-    LlamaForCausalLM,
-    LlamaTokenizer,
-    LlamaTokenizerFast,
     PreTrainedModel,
     PreTrainedTokenizer,
     Trainer,
@@ -78,7 +77,13 @@ def main():
         else dataset["validation"]
     )
 
-    # load the model
+    # Load model and tokenizer
+    tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
+        pretrained_model_name_or_path=model_args.tokenizer_name,
+        add_eos_token=True,
+        use_auth_token=True if model_args.use_auth_token else None,
+    )
+
     device_map = "auto"
     world_size = int(os.environ.get("WORLD_SIZE", 1))
 
@@ -89,23 +94,11 @@ def main():
             train_args.gradient_accumulation_steps // world_size
         )
 
-    if model_args.use_fast_tokenizer:
-        tokenizer: PreTrainedTokenizer = LlamaTokenizerFast.from_pretrained(
-            pretrained_model_name_or_path=model_args.tokenizer_name,
-            add_eos_token=True,
-            use_auth_token=True if model_args.use_auth_token else None,
-        )
-    else:
-        tokenizer: PreTrainedTokenizer = LlamaTokenizer.from_pretrained(
-            pretrained_model_name_or_path=model_args.tokenizer_name,
-            add_eos_token=True,
-            use_auth_token=True if model_args.use_auth_token else None,
-        )
-
-    model: PreTrainedModel = LlamaForCausalLM.from_pretrained(
+    model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
         pretrained_model_name_or_path=model_args.model_name,
         load_in_8bit=True,
         device_map=device_map,
+        torch_dtype=torch.float16,
         use_auth_token=True if model_args.use_auth_token else None,
     )
 
@@ -162,6 +155,10 @@ def main():
         model.push_to_hub(train_args.hub_model_id)
         tokenizer.push_to_hub(train_args.hub_model_id)
 
+    # Save model locally
+    if model_args.save_local:
+        model.save_pretrained(train_args.output_dir)
+        tokenizer.save_pretrained(train_args.output_dir)
 
 if __name__ == "__main__":
     main()
