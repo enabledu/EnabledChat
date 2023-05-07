@@ -20,6 +20,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
+from transformers.trainer_utils import get_last_checkpoint
 from utils import DataTrainingArguments, LoraTrainingConfig, ModelArguments
 
 
@@ -53,6 +54,21 @@ def main():
     # Login in to HuggingFace Hub
     if train_args.hub_token is not None:
         login(train_args.hub_token)
+
+    # Detecting last checkpoint.
+    last_checkpoint = None
+    if os.path.isdir(train_args.output_dir) and not train_args.overwrite_output_dir:
+        last_checkpoint = get_last_checkpoint(train_args.output_dir)
+        if last_checkpoint is None and len(os.listdir(train_args.output_dir)) > 0:
+            raise ValueError(
+                f"Output directory ({train_args.output_dir}) already exists and is not empty. "
+                "Use --overwrite_output_dir to overcome."
+            )
+        elif last_checkpoint is not None and train_args.resume_from_checkpoint is None:
+            print(
+                f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "
+                "the `--output_dir` or add `--overwrite_output_dir` to train from scratch."
+            )
 
     # Set the project name for wandb
     if model_args.wandb_project_name is not None:
@@ -148,17 +164,19 @@ def main():
     model.print_trainable_parameters()
     print("*" * 50, end="\n\n")
 
-    trainer.train()
+    checkpoint = None
+    if train_args.resume_from_checkpoint is not None:
+        checkpoint = train_args.resume_from_checkpoint
+    elif last_checkpoint is not None:
+        checkpoint = last_checkpoint
+    train_result = trainer.train(resume_from_checkpoint=checkpoint)
+    trainer.save_model()  # Saves the tokenizer too for easy upload
 
-    # Push model to hub
-    if model_args.push_model_to_hub and train_args.hub_token is not None:
+    # Push final model to hub
+    if train_args.push_to_hub:
         model.push_to_hub(train_args.hub_model_id)
         tokenizer.push_to_hub(train_args.hub_model_id)
 
-    # Save model locally
-    if model_args.save_local:
-        model.save_pretrained(train_args.output_dir)
-        tokenizer.save_pretrained(train_args.output_dir)
 
 if __name__ == "__main__":
     main()

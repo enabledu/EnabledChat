@@ -37,7 +37,7 @@ class ModelArguments:
         },
     )
     save_local: bool = field(
-        default=True,
+        default=False,
         metadata={
             "help": "Whether or not to save a version of the model locally after training is done."
         },
