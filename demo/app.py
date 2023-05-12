@@ -21,8 +21,8 @@ def user(user_message, chatbot):
     return "", chatbot + [[user_message, None]]
 
 
-def generate(chatbot):
-    inputs = generate_prompt(chatbot[-1][0], "", tokenizer=tokenizer, device=device)
+def generate(chatbot, history):
+    inputs = generate_prompt(question=chatbot[-1][0], context="", history=history, tokenizer=tokenizer, device=device)
 
     # Start a seperate thread to generate the answer
     generation_kwargs = dict(
@@ -33,18 +33,24 @@ def generate(chatbot):
 
     # Stream the output of the model
     chatbot[-1][1] = ""
+    history = history + [[chatbot[-1][0], ""]]
     for new_text in streamer:
         chatbot[-1][1] += new_text
-        yield chatbot
+        history[-1][1] += new_text
+        yield chatbot, history
 
+    chatbot[-1][1] = chatbot[-1][1].strip("\n")
+    history[-1][1] = history[-1][1].strip("\n")
+    yield chatbot, history
 
-def retry(chatbot):
+def retry(chatbot, history):
     if len(chatbot) == 0:
         yield chatbot
         return
 
+    _ = history.pop()
     chatbot[-1][1] = ""
-    for x in generate(chatbot):
+    for x in generate(chatbot, history):
         yield x
 
 
@@ -67,8 +73,9 @@ with gr.Blocks() as demo:
 
     user_input.submit(
         user, [user_input, chatbot], [user_input, chatbot], queue=False
-    ).then(generate, chatbot, chatbot)
-    retry_btn.click(retry, chatbot, chatbot)
+    ).then(generate, [chatbot, history], [chatbot, history])
+
+    retry_btn.click(retry, [chatbot, history], [chatbot, history])
     clear_btn.click(lambda: None, None, chatbot, queue=False)
 
 
