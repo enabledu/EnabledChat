@@ -1,0 +1,5 @@
+torch==2.0.0
+git+https://github.com/huggingface/transformers.git
+gradio==3.28.1
+sentencepiece==0.1.97
+accelerate==0.18.0
