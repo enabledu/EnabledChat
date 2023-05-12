@@ -84,4 +84,4 @@ with gr.Blocks() as demo:
 demo.title = "EnabledChat"
 
 if __name__ == "__main__":
-    demo.queue().launch()
+    demo.queue(concurrency_count=15).launch(share=True)

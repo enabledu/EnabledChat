@@ -39,6 +39,8 @@ Hello. How can I help you today?{history}
 
     inputs = tokenizer(
         [prompt.format(question=question, context=context, history=prompt_history)],
+        max_length=2048,
+        truncation=True,
         return_tensors="pt",
     ).to(device)
     return inputs
