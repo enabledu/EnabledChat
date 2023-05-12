@@ -1,28 +1,41 @@
 import sys
+from threading import Thread
 
 import gradio as gr
 from transformers import TextIteratorStreamer
 
-from utils import load_model_and_tokenizer
+from utils import generate_prompt, load_model_and_tokenizer
 
 if len(sys.argv) != 2:
     print("USAGE: python app.py <MODEL_NAME>")
     sys.exit(1)
 
 model, tokenizer, device = load_model_and_tokenizer(model_name=sys.argv[1])
+streamer = TextIteratorStreamer(tokenizer, skip_special_tokens=True, skip_prompt=True)
 
 title = "**EnabledChat** v0.0"
 description = "*Disclaimer:*"
 
 
-def user(user_message, history):
-    if user_message == "":
-        return None, None
-    return "", history + [[user_message, None]]
+def user(user_message, chatbot):
+    return "", chatbot + [[user_message, None]]
 
 
 def generate(chatbot):
-    ...
+    inputs = generate_prompt(chatbot[-1][0], "", tokenizer=tokenizer, device=device)
+
+    # Start a seperate thread to generate the answer
+    generation_kwargs = dict(
+        inputs, streamer=streamer, generation_config=model.generation_config
+    )
+    thread = Thread(target=model.generate, kwargs=generation_kwargs)
+    thread.start()
+
+    # Stream the output of the model
+    chatbot[-1][1] = ""
+    for new_text in streamer:
+        chatbot[-1][1] += new_text
+        yield chatbot
 
 
 def retry(chatbot):
