@@ -53,6 +53,8 @@ def retry(chatbot, history):
     for x in generate(chatbot, history):
         yield x
 
+def clear():
+    return None, []
 
 with gr.Blocks() as demo:
     history = gr.State([])
@@ -65,7 +67,7 @@ with gr.Blocks() as demo:
         chatbot = gr.Chatbot(elem_id="chatbot").style(height="100%")
 
     with gr.Row():
-        user_input = gr.Textbox(show_label=False, placeholder="Enter question")
+        user_input = gr.Textbox(show_label=False, placeholder="Enter question").style(container=False)
 
     with gr.Row().style(equal_height=True):
         clear_btn = gr.Button("Clear")
@@ -76,7 +78,7 @@ with gr.Blocks() as demo:
     ).then(generate, [chatbot, history], [chatbot, history])
 
     retry_btn.click(retry, [chatbot, history], [chatbot, history])
-    clear_btn.click(lambda: None, None, chatbot, queue=False)
+    clear_btn.click(clear, None, [chatbot, history], queue=False)
 
 
 demo.title = "EnabledChat"
