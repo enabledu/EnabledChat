@@ -30,10 +30,11 @@ Hello. How can I help you today?{history}
     question = "[|Human|]\n" + question
     prompt_history = ""
     history_len = 0
-    for human, ai in history:
+    for human, ai in reversed(history):
         if history_len > 1500:
+            _ = history.pop(0)
             break
-        prompt_history += f"\n[|Human|]\n{human}\n[|AI|]\n{ai}"
+        prompt_history = f"\n[|Human|]\n{human}\n[|AI|]\n{ai}" + prompt_history
         history_len += len(human.split()) + len(ai.split())
 
     inputs = tokenizer(
