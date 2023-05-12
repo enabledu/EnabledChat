@@ -1,29 +1,39 @@
+import sys
+
 import gradio as gr
-import random
-import time
+from transformers import TextIteratorStreamer
+
+from utils import load_model_and_tokenizer
+
+if len(sys.argv) != 2:
+    print("USAGE: python app.py <MODEL_NAME>")
+    sys.exit(1)
+
+model, tokenizer, device = load_model_and_tokenizer(model_name=sys.argv[1])
 
 title = "**EnabledChat** v0.0"
 description = "*Disclaimer:*"
 
+
 def user(user_message, history):
+    if user_message == "":
+        return None, None
     return "", history + [[user_message, None]]
 
-def generate(history):
-    bot_message = random.choice(["How are you?", "I love you", "I'm very hungry"])
-    history[-1][1] = ""
-    for character in bot_message:
-        history[-1][1] += character
-        time.sleep(0.05)
-        yield history
 
-def retry(history):
-    if len(history) == 0:
-        yield history
+def generate(chatbot):
+    ...
+
+
+def retry(chatbot):
+    if len(chatbot) == 0:
+        yield chatbot
         return
 
-    history[-1][1] = ""
-    for x in generate(history):
+    chatbot[-1][1] = ""
+    for x in generate(chatbot):
         yield x
+
 
 with gr.Blocks() as demo:
     history = gr.State([])
@@ -42,12 +52,14 @@ with gr.Blocks() as demo:
         clear_btn = gr.Button("Clear")
         retry_btn = gr.Button("Regenerate")
 
-    user_input.submit(user, [user_input, chatbot], [user_input, chatbot], queue=False).then(
-        generate, chatbot, chatbot
-    )
+    user_input.submit(
+        user, [user_input, chatbot], [user_input, chatbot], queue=False
+    ).then(generate, chatbot, chatbot)
     retry_btn.click(retry, chatbot, chatbot)
     clear_btn.click(lambda: None, None, chatbot, queue=False)
 
 
 demo.title = "EnabledChat"
-demo.queue().launch()
+
+if __name__ == "__main__":
+    demo.queue().launch()
