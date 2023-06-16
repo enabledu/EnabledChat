@@ -24,11 +24,17 @@ model_name = sys.argv[1] if len(sys.argv) > 1 else "0x70DA/EnabledChat-Falcon"
 
 def format_chat_prompt(message: str, chat_history, instructions: str) -> str:
     instructions = instructions.strip(" ").strip("\n")
-    prompt = instructions
-    for turn in chat_history:
+    prompt = ""
+    history_len = 0
+    for turn in reversed(chat_history):
+        if history_len > 1500:
+            _ = chat_history.pop(0)
+            break
         user_message, bot_message = turn
-        prompt = f"{prompt}\n{USER_NAME}: {user_message}\n{BOT_NAME}: {bot_message}"
-    prompt = f"{prompt}\n{USER_NAME}: {message}\n{BOT_NAME}:"
+        prompt = f"{USER_NAME}: {user_message}\n{BOT_NAME}: {bot_message}\n" + prompt
+        history_len += len(user_message) + len(bot_message)
+
+    prompt = instructions + f"\n{prompt}\n{USER_NAME}: {message}\n{BOT_NAME}: "
     return prompt
 
 
@@ -48,11 +54,62 @@ def chat():
 
     with gr.Row(elem_id="button_container"):
         with gr.Column():
-            retry_button = gr.Button("♻️ Retry last turn")
+            retry_button = gr.Button("♻️ Regenrate")
         with gr.Column():
             delete_turn_button = gr.Button("🧽 Delete last turn")
         with gr.Column():
-            clear_chat_button = gr.Button("✨ Delete all history")
+            clear_chat_button = gr.Button("✨ Clear all history")
+
+
+def run_chat(
+    message: str, chat_history, instructions: str, temperature: float=0.8, top_p: float=0.9
+):
+    if not message or (message == RETRY_COMMAND and len(chat_history) == 0):
+        yield chat_history
+        return
+
+    if message == RETRY_COMMAND and chat_history:
+        prev_turn = chat_history.pop(-1)
+        user_message, _ = prev_turn
+        message = user_message
+
+    prompt = format_chat_prompt(message, chat_history, instructions)
+    chat_history = chat_history + [[message, ""]]
+
+    # Start a seperate thread to generate the answer
+    inputs = tokenizer(
+        prompt,
+        max_length=2048,
+        truncation=True,
+        return_tensors="pt",
+    ).to(device)
+    try:
+        del inputs["token_type_ids"]
+    except:
+        pass
+
+    generation_kwargs = dict(
+        inputs,
+        streamer=streamer,
+        do_sample=True,
+        max_new_tokens=512,
+        temperature=temperature,
+        top_p=top_p,
+    )
+    thread = Thread(target=model.generate, kwargs=generation_kwargs)
+    thread.start()
+
+    acc_text = ""
+    for new_token in streamer:
+        if new_token in STOP_SUSPECT_LIST:
+            break
+
+        acc_text += new_token
+        last_turn = list(chat_history.pop(-1))
+        last_turn[-1] += acc_text
+        chat_history = chat_history + [last_turn]
+        yield chat_history
+        acc_text = ""
 
 
 def get_demo():
