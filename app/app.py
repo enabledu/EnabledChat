@@ -5,9 +5,9 @@ import sys
 from threading import Thread
 import gradio as gr
 
-# from transformers import TextIteratorStreamer
+from transformers import TextIteratorStreamer
 
-# from utils import load_model_and_tokenizer
+from utils import load_model_and_tokenizer
 
 TITLE = """<h2 align="center">🚀 EnabledChat demo</h2>"""
 USER_NAME = "User"
@@ -18,11 +18,13 @@ DEFAULT_INSTRUCTIONS = f"""The following is a conversation between a highly know
 RETRY_COMMAND = "/retry"
 
 model_name = sys.argv[1] if len(sys.argv) > 1 else "0x70DA/EnabledChat-Falcon"
-# model, tokenizer, device = load_model_and_tokenizer(model_name=model_name)
-# streamer = TextIteratorStreamer(tokenizer, skip_special_tokens=True, skip_prompt=True)
+model, tokenizer, device = load_model_and_tokenizer(model_name=model_name)
+streamer = TextIteratorStreamer(tokenizer, skip_special_tokens=True, skip_prompt=True)
 
 
-def format_chat_prompt(message: str, chat_history, instructions: str = DEFAULT_INSTRUCTIONS) -> str:
+def format_chat_prompt(
+    message: str, chat_history, instructions: str = DEFAULT_INSTRUCTIONS
+) -> str:
     instructions = instructions.strip(" ").strip("\n")
     prompt = ""
     history_len = 0
@@ -129,7 +131,7 @@ def chat():
 
     def clear_chat():
         return []
-    
+
     inputs.submit(
         run_chat,
         [inputs, chatbot],

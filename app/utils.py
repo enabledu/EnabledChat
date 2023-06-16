@@ -3,7 +3,7 @@ Utility functions for the app
 """
 
 import torch
-from transformers import AutoTokenier, AutoModelForCasualLM
+from transformers import AutoTokenizer, AutoModelForCasualLM
 
 
 def load_model_and_tokenizer(model_name):
