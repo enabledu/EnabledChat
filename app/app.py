@@ -37,6 +37,7 @@ def format_chat_prompt(
         history_len += len(user_message) + len(bot_message)
 
     prompt = instructions + f"\n{prompt}\n{USER_NAME}: {message}\n{BOT_NAME}: "
+    print(prompt)
     return prompt
 
 
@@ -165,4 +166,4 @@ def get_demo():
 if __name__ == "__main__":
     demo = get_demo()
     demo.queue(max_size=128, concurrency_count=16)
-    demo.launch(share=False)
+    demo.launch(share=True)
