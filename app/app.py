@@ -22,7 +22,7 @@ model_name = sys.argv[1] if len(sys.argv) > 1 else "0x70DA/EnabledChat-Falcon"
 # streamer = TextIteratorStreamer(tokenizer, skip_special_tokens=True, skip_prompt=True)
 
 
-def format_chat_prompt(message: str, chat_history, instructions: str) -> str:
+def format_chat_prompt(message: str, chat_history, instructions: str = DEFAULT_INSTRUCTIONS) -> str:
     instructions = instructions.strip(" ").strip("\n")
     prompt = ""
     history_len = 0
@@ -60,56 +60,91 @@ def chat():
         with gr.Column():
             clear_chat_button = gr.Button("✨ Clear all history")
 
+    def run_chat(
+        message: str,
+        chat_history,
+        instructions: str = DEFAULT_INSTRUCTIONS,
+        temperature: float = 0.8,
+        top_p: float = 0.9,
+    ):
+        if not message or (message == RETRY_COMMAND and len(chat_history) == 0):
+            yield chat_history
+            return
 
-def run_chat(
-    message: str, chat_history, instructions: str, temperature: float=0.8, top_p: float=0.9
-):
-    if not message or (message == RETRY_COMMAND and len(chat_history) == 0):
-        yield chat_history
-        return
+        if message == RETRY_COMMAND and chat_history:
+            prev_turn = chat_history.pop(-1)
+            user_message, _ = prev_turn
+            message = user_message
 
-    if message == RETRY_COMMAND and chat_history:
-        prev_turn = chat_history.pop(-1)
-        user_message, _ = prev_turn
-        message = user_message
+        prompt = format_chat_prompt(message, chat_history, instructions)
+        chat_history = chat_history + [[message, ""]]
 
-    prompt = format_chat_prompt(message, chat_history, instructions)
-    chat_history = chat_history + [[message, ""]]
+        # Start a seperate thread to generate the answer
+        inputs = tokenizer(
+            prompt,
+            max_length=2048,
+            truncation=True,
+            return_tensors="pt",
+        ).to(device)
+        try:
+            del inputs["token_type_ids"]
+        except:
+            pass
 
-    # Start a seperate thread to generate the answer
-    inputs = tokenizer(
-        prompt,
-        max_length=2048,
-        truncation=True,
-        return_tensors="pt",
-    ).to(device)
-    try:
-        del inputs["token_type_ids"]
-    except:
-        pass
+        generation_kwargs = dict(
+            inputs,
+            streamer=streamer,
+            do_sample=True,
+            max_new_tokens=512,
+            temperature=temperature,
+            top_p=top_p,
+        )
+        thread = Thread(target=model.generate, kwargs=generation_kwargs)
+        thread.start()
 
-    generation_kwargs = dict(
-        inputs,
-        streamer=streamer,
-        do_sample=True,
-        max_new_tokens=512,
-        temperature=temperature,
-        top_p=top_p,
-    )
-    thread = Thread(target=model.generate, kwargs=generation_kwargs)
-    thread.start()
-
-    acc_text = ""
-    for new_token in streamer:
-        if new_token in STOP_SUSPECT_LIST:
-            break
-
-        acc_text += new_token
-        last_turn = list(chat_history.pop(-1))
-        last_turn[-1] += acc_text
-        chat_history = chat_history + [last_turn]
-        yield chat_history
         acc_text = ""
+        for new_token in streamer:
+            acc_text += new_token
+            last_turn = list(chat_history.pop(-1))
+            last_turn[-1] += acc_text
+            chat_history = chat_history + [last_turn]
+            yield chat_history
+            acc_text = ""
+
+    def delete_last_turn(chat_history):
+        if chat_history:
+            chat_history.pop(-1)
+        return {chatbot: gr.update(value=chat_history)}
+
+    def run_retry(
+        message: str,
+        chat_history,
+        instructions: str = DEFAULT_INSTRUCTIONS,
+        temperature: float = 0.8,
+        top_p: float = 0.9,
+    ):
+        yield from run_chat(
+            RETRY_COMMAND, chat_history, instructions, temperature, top_p
+        )
+
+    def clear_chat():
+        return []
+    
+    inputs.submit(
+        run_chat,
+        [inputs, chatbot],
+        outputs=[chatbot],
+        show_progress=False,
+    )
+    inputs.submit(lambda: "", inputs=None, outputs=inputs)
+    delete_turn_button.click(delete_last_turn, inputs=[chatbot], outputs=[chatbot])
+    retry_button.click(
+        run_retry,
+        [inputs, chatbot],
+        outputs=[chatbot],
+        show_progress=False,
+    )
+    clear_chat_button.click(clear_chat, [], chatbot)
 
 
 def get_demo():
