@@ -1,0 +1,6 @@
+torch
+git+https://github.com/huggingface/transformers.git
+git+https://github.com/huggingface/accelerate.git
+bitsandbytes
+einops
+gradio==3.28.1
