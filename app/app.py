@@ -1,12 +1,12 @@
 """
 Gradio app for EnabledChat
 """
+import re
 import sys
 from threading import Thread
+
 import gradio as gr
-
 from transformers import TextIteratorStreamer
-
 from utils import load_model_and_tokenizer
 
 TITLE = """<h2 align="center">🚀 EnabledChat demo</h2>"""
@@ -27,6 +27,7 @@ model, tokenizer, device = load_model_and_tokenizer(model_name=model_name)
 streamer = TextIteratorStreamer(tokenizer, skip_special_tokens=True, skip_prompt=True)
 
 regex = [r"User $", r"User: $", r"EnabledChat $", r"EnabledChat: $"]
+
 
 def format_chat_prompt(
     message: str, chat_history, instructions: str = DEFAULT_INSTRUCTIONS
@@ -110,7 +111,7 @@ def chat():
             temperature=temperature,
             top_p=top_p,
             no_repeat_ngram_size=3,
-            eos_token_id=tokenizer.eos_token_id
+            eos_token_id=tokenizer.eos_token_id,
         )
         thread = Thread(target=model.generate, kwargs=generation_kwargs)
         thread.start()
