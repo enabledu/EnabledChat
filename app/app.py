@@ -13,13 +13,20 @@ TITLE = """<h2 align="center">🚀 EnabledChat demo</h2>"""
 USER_NAME = "User"
 BOT_NAME = "EnabledChat"
 
-DEFAULT_INSTRUCTIONS = """The following is a conversation between a highly knowledgeable and intelligent AI assistant, called EnabledChat, and a human user, called User. EnabledChat is a chatbot made by Mahmoud Hussein as part of a graduation project. In the following interactions, User and EnabledChat will converse in natural language, and EnabledChat will answer User's questions. EnabledChat was built to be respectful, polite and inclusive. EnabledChat will never decline to answer a question, and always attempts to give an answer that User would be satisfied with. It knows a lot, and always tells the truth. The conversation begins."""
+# DEFAULT_INSTRUCTIONS = """The following is a conversation between a highly knowledgeable and intelligent AI assistant, called EnabledChat, and a human user, called User. EnabledChat is a chatbot made by Mahmoud Hussein as part of a graduation project. In the following interactions, User and EnabledChat will converse in natural language, and EnabledChat will answer User's questions. EnabledChat was built to be respectful, polite and inclusive. EnabledChat will never decline to answer a question, and always attempts to give an answer that User would be satisfied with. It knows a lot, and always tells the truth. The conversation begins."""
 RETRY_COMMAND = "/retry"
+DEFAULT_INSTRUCTIONS = """The following is a conversation between a highly knowledgeable and intelligent AI assistant, called EnabledChat, and a human user, called User. EnabledChat is a chatbot made by Mahmoud Hussein as part of a graduation project.
+In the following interactions, User and EnabledChat will converse in natural language, and EnabledChat will answer User's questions. EnabledChat was built to be respectful, polite and inclusive. EnabledChat will never decline to answer a question, and always attempts to give an answer that User would be satisfied with. It knows a lot, and always tells the truth.
+The follwing is the history of the conversation:
+User: Hi!
+EnabledChat: Hello, how can I help you today?
+"""
 
 model_name = sys.argv[1] if len(sys.argv) > 1 else "0x70DA/EnabledChat-Falcon"
 model, tokenizer, device = load_model_and_tokenizer(model_name=model_name)
 streamer = TextIteratorStreamer(tokenizer, skip_special_tokens=True, skip_prompt=True)
 
+regex = [r"User $", r"User: $", r"EnabledChat $", r"EnabledChat: $"]
 
 def format_chat_prompt(
     message: str, chat_history, instructions: str = DEFAULT_INSTRUCTIONS
@@ -36,6 +43,10 @@ def format_chat_prompt(
         history_len += len(user_message) + len(bot_message)
 
     prompt = instructions + f"\n{prompt}\n{USER_NAME}: {message}\n{BOT_NAME}: "
+    prompt += f"""
+Using the previous history, ONLY answer the following question from User
+{USER_NAME}: {message}
+{BOT_NAME}:"""
     print(prompt)
     return prompt
 
@@ -51,8 +62,6 @@ def chat():
                     show_label=False,
                     max_lines=3,
                 )
-            with gr.Column(elem_id="send_button"):
-                send = gr.Button(value="Send")
 
     with gr.Row(elem_id="button_container"):
         with gr.Column():
@@ -66,7 +75,7 @@ def chat():
         message: str,
         chat_history,
         instructions: str = DEFAULT_INSTRUCTIONS,
-        temperature: float = 0.8,
+        temperature: float = 0.2,
         top_p: float = 0.9,
     ):
         if not message or (message == RETRY_COMMAND and len(chat_history) == 0):
@@ -97,11 +106,11 @@ def chat():
             inputs,
             streamer=streamer,
             do_sample=True,
-            max_new_tokens=256,
+            max_new_tokens=128,
             temperature=temperature,
             top_p=top_p,
             no_repeat_ngram_size=3,
-            eos_token_id=tokenizer("\nUser:")["input_ids"]
+            eos_token_id=tokenizer.eos_token_id
         )
         thread = Thread(target=model.generate, kwargs=generation_kwargs)
         thread.start()
@@ -109,6 +118,10 @@ def chat():
         acc_text = ""
         for new_token in streamer:
             acc_text += new_token
+
+            for reg in regex:
+                acc_text = re.sub(reg, "", acc_text)
+
             last_turn = list(chat_history.pop(-1))
             last_turn[-1] += acc_text
             chat_history = chat_history + [last_turn]
