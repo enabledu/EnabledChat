@@ -6,6 +6,7 @@ import sys
 from threading import Thread
 
 import gradio as gr
+from theme import custom_theme
 from transformers import TextIteratorStreamer
 from utils import load_model_and_tokenizer
 
@@ -66,11 +67,11 @@ def chat():
 
     with gr.Row(elem_id="button_container"):
         with gr.Column():
-            retry_button = gr.Button("♻️ Regenrate")
+            retry_button = gr.Button("Regenrate")
         with gr.Column():
-            delete_turn_button = gr.Button("🧽 Delete last turn")
+            delete_turn_button = gr.Button("Delete last turn")
         with gr.Column():
-            clear_chat_button = gr.Button("✨ Clear all history")
+            clear_chat_button = gr.Button("Clear all history")
 
     def run_chat(
         message: str,
@@ -170,7 +171,8 @@ def get_demo():
         css="""#chat_container {width: 700px; margin-left: auto; margin-right: auto;}
                 #button_container {width: 700px; margin-left: auto; margin-right: auto;}
                 #chatbot {font-size: 14px; min-height: 300px;}               
-                """
+                """,
+        theme=custom_theme,
     ) as demo:
         gr.HTML(TITLE)
         chat()
@@ -181,4 +183,4 @@ def get_demo():
 if __name__ == "__main__":
     demo = get_demo()
     demo.queue(max_size=128, concurrency_count=16)
-    demo.launch(share=True)
+    demo.launch(share=True, show_api=False)
